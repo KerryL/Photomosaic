@@ -1,0 +1,31 @@
+#!/bin/bash
+# File:  generate
+# Auth:  K. Loux
+# Date:  3/13/2010
+# Desc:  This script launches the photomosaic creator and
+#        sets up the paths and options to create the image.
+#        Simply for convenience.
+
+PICDIR="KnTThumb"
+BIGPICDIR="SaveDateTargets/"
+BIGPICFILE="invbluedate"
+BIGPICEXT=".bmp"
+OUTFILEDIR="SaveDateMosaics/"
+SUBSIZE=96
+TILESIZE=30
+SUBSAMPLES=7
+REPEAT=50
+
+BIGPIC=$BIGPICDIR$BIGPICFILE$BIGPICEXT
+OUTFILE=$OUTFILEDIR$BIGPICFILE"_"$TILESIZE"_"$SUBSAMPLES".jpg"
+
+# For creating thumbnails
+#OUTFILE=$OUTFILEDIR$BIGPICFILE"_"$TILESIZE"_"$SUBSAMPLES"_gs.jpg"
+#./PhotoMosaic -dir "/home/Kerry/Projects/PhotoMosaic/KnTFullSize" -big-pic "$BIGPIC" -o "$OUTFILE" -subsize $SUBSIZE -tilesize $TILESIZE -subsamples $SUBSAMPLES -repeat $REPEAT -save-thumbs $PICDIR -no-repeats -greyscore
+
+# Normal Use
+#./PhotoMosaic -dir "$PICDIR" -big-pic "$BIGPIC" -o "$OUTFILE" -subsize $SUBSIZE -tilesize $TILESIZE -subsamples $SUBSAMPLES -repeat $REPEAT -no-repeats 
+
+# Using greyscale for scoring
+OUTFILE=$OUTFILEDIR$BIGPICFILE"_"$TILESIZE"_"$SUBSAMPLES"_gs_0.jpg"
+./PhotoMosaic -dir "$PICDIR" -big-pic "$BIGPIC" -o "$OUTFILE" -subsize $SUBSIZE -tilesize $TILESIZE -subsamples $SUBSAMPLES -repeat $REPEAT -no-repeats -greyscore -seed 0

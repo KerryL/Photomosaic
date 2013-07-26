@@ -1,0 +1,26 @@
+#!/bin/bash
+# File:  generate
+# Auth:  K. Loux
+# Date:  3/13/2010
+# Desc:  This script launches the photomosaic creator and
+#        sets up the paths and options to create the image.
+#        Simply for convenience.
+
+PICDIR="KnTThumbGrey"
+BIGPICDIR="SaveDateTargets/"
+BIGPICFILE="whitedate"
+BIGPICEXT=".bmp"
+OUTFILEDIR="SaveDateMosaics/"
+SUBSIZE=75
+TILESIZE=35
+SUBSAMPLES=10
+REPEAT=50
+
+BIGPIC=$BIGPICDIR$BIGPICFILE$BIGPICEXT
+OUTFILE=$OUTFILEDIR$BIGPICFILE"_"$TILESIZE"_"$SUBSAMPLES"_grey.jpg"
+
+# For creating thumbnails
+#./PhotoMosaic -dir "/home/Kerry/Projects/PhotoMosaic/KnTFullSize" -big-pic "$BIGPIC" -o "$OUTFILE" -subsize $SUBSIZE -tilesize $TILESIZE -subsamples $SUBSAMPLES -repeat $REPEAT -save-thumbs $PICDIR -no-repeats -grey
+
+# Normal Use
+./PhotoMosaic -dir "$PICDIR" -big-pic "$BIGPIC" -o "$OUTFILE" -subsize $SUBSIZE -tilesize $TILESIZE -subsamples $SUBSAMPLES -repeat $REPEAT -no-repeats

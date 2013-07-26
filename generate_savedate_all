@@ -1,0 +1,52 @@
+#!/bin/bash
+# File:  generate_savedate_all
+# Auth:  K. Loux
+# Date:  3/13/2010
+# Desc:  This script launches the photomosaic creator and
+#        sets up the paths and options to create the image.
+#        Simply for convenience.
+
+BIGPICDIR="SaveDateTargets/"
+#BIGPICFILE="reddate"
+BIGPICEXT=".bmp"
+OUTFILEDIR="SaveDateMosaics/"
+SUBSIZE=75
+#TILESIZE=35
+#SUBSAMPLES=10
+REPEAT=50
+
+for BIGPICFILE in invbluedatehyp invreddatehyp whitedatehyp
+do
+
+BIGPIC=$BIGPICDIR$BIGPICFILE$BIGPICEXT
+
+#  Loop through TILESIZE and SUBSAMPLES
+for TILESIZE in 22 24 26 28 30 32
+do
+
+for SUBSAMPLES in 3 5 7 9
+do
+
+# Greyscale
+PICDIR="KnTThumbGrey"
+OUTFILE=$OUTFILEDIR$BIGPICFILE"_"$TILESIZE"_"$SUBSAMPLES"_grey.jpg"
+./PhotoMosaic -dir "$PICDIR" -big-pic "$BIGPIC" -o "$OUTFILE" -subsize $SUBSIZE -tilesize $TILESIZE -subsamples $SUBSAMPLES -repeat $REPEAT -no-repeats
+
+# Normal
+PICDIR="KnTThumb"
+OUTFILE=$OUTFILEDIR$BIGPICFILE"_"$TILESIZE"_"$SUBSAMPLES".jpg"
+./PhotoMosaic -dir "$PICDIR" -big-pic "$BIGPIC" -o "$OUTFILE" -subsize $SUBSIZE -tilesize $TILESIZE -subsamples $SUBSAMPLES -repeat $REPEAT -no-repeats
+
+# Normal with greyscale scoring
+PICDIR="KnTThumb"
+OUTFILE=$OUTFILEDIR$BIGPICFILE"_"$TILESIZE"_"$SUBSAMPLES"_gs.jpg"
+./PhotoMosaic -dir "$PICDIR" -big-pic "$BIGPIC" -o "$OUTFILE" -subsize $SUBSIZE -tilesize $TILESIZE -subsamples $SUBSAMPLES -repeat $REPEAT -no-repeats -greyscore
+
+# SUBSAMPLES
+done
+
+# TILESIZE
+done
+
+# BIGPICFILE
+done
