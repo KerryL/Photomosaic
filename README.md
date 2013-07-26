@@ -5,7 +5,7 @@ Command-line photomosaic generator
 
 Date:  6/24/2009
 
-Photomosaic uses wxWidgets (www.wxwidgets.org).  It has been tested under MSW and GTK.
+Photomosaic uses wxWidgets 2.8 (www.wxwidgets.org).  It has been tested under MSW and GTK.
 
 How to use the program:
 I recommend a batch/shell script (a sample is included), but the command prompt works just fine, too.  Note that all images will be cropped to be square (chopped evenly on both sides, or both top and bottom).  Here are the arguments (quotes are required for arguments with spaces, as demonstrated for -dir).  All-caps indicates an argument that you, the user, must specify:
