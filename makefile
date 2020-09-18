@@ -10,7 +10,8 @@ TARGET = PhotoMosaic
 
 # Directories in which to search for source files
 DIRS = \
-	$(PWD)
+	$(CURDIR)/src \
+	$(CURDIR)/src/utilities
 
 # Source files
 SRC = $(foreach dir, $(DIRS), $(wildcard $(dir)/*.cpp))

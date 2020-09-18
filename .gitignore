@@ -2,8 +2,10 @@
 Debug/
 Release/
 ipch/
-DataPlotter/Debug
-DataPlotter/Release
+
+PhotoMosaic
+
+*.sh
 
 *.suo
 *.sdf
@@ -12,4 +14,4 @@ DataPlotter/Release
 # Ignore GKT directories
 bin/
 .obj/
-/DataPlotter/nbproject/private/
+
