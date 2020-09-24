@@ -17,6 +17,7 @@
 // Standard C++ headers
 #include <cassert>
 #include <iostream>
+#include <algorithm>
 
 wxImage Photomosaic::Build()
 {
@@ -56,12 +57,46 @@ wxImage Photomosaic::Build()
 	std::vector<std::vector<std::vector<double>>> scores(thumbnailInfo.size());
 	for (unsigned int i = 0; i < thumbnailInfo.size(); ++i)
 		scores[i] = ScoreGrid(targetInfo, thumbnailInfo[i].info);// Lower scores represent better fits
-		
-	// TODO:  Choose images
-	// TODO:  Build output image
-	wxImage outputImage;
+
+	const auto chosenTileIndices(ChooseTiles(scores));
+	return std::move(BuildOutputImage(chosenTileIndices, thumbnailInfo));
+}
+
+std::vector<std::vector<unsigned int>> Photomosaic::ChooseTiles(std::vector<std::vector<std::vector<double>>> scores)
+{
+	// TODO:  Modify algorithm to include a penalty for using too many of a sinagle image or too many of the same image in a small area
+	std::vector<std::vector<unsigned int>> chosenIndices(scores.size());
+	for (unsigned int x = 0; x < scores.size(); ++x)
+	{
+		chosenIndices[x].resize(scores[x].size());
+		for (unsigned int y = 0; y < scores.front().size(); ++y)
+		{
+			const auto bestScoreIndex(std::distance(std::max_element(scores[x][y].begin(), scores[x][y].end()), scores[x][y].begin()));
+			chosenIndices[x][y] = bestScoreIndex;
+		}
+	}
 	
-	return outputImage;
+	return chosenIndices;
+}
+
+wxImage Photomosaic::BuildOutputImage(const std::vector<std::vector<unsigned int>>& chosenTileIndices, const std::vector<ImageInfo>& thumbnailInfo)
+{
+	wxImage image(chosenTileIndices.size() * thumbnailInfo.front().image.GetWidth(), chosenTileIndices.front().size() * thumbnailInfo.front().image.GetHeight());
+	for (unsigned int i = 0; i < static_cast<unsigned int>(image.GetWidth()); ++i)
+	{
+		for (unsigned int j = 0; j < static_cast<unsigned int>(image.GetHeight()); ++j)
+		{
+			const auto thumbnailSize(thumbnailInfo.front().image.GetWidth());
+			const auto xChoice(i / chosenTileIndices.size());
+			const auto yChoice(j / chosenTileIndices.front().size());
+			const auto& thumb(thumbnailInfo[chosenTileIndices[xChoice][yChoice]].image);
+			const auto xOffset(i - xChoice * thumbnailSize);
+			const auto yOffset(j - yChoice * thumbnailSize);
+			image.SetRGB(i, j, thumb.GetRed(xOffset, yOffset), thumb.GetGreen(xOffset, yOffset), thumb.GetBlue(xOffset, yOffset));
+		}
+	}
+
+	return std::move(image);
 }
 
 Photomosaic::InfoGrid Photomosaic::GetColorInformation(const wxImage& image, const unsigned int& subSamples)

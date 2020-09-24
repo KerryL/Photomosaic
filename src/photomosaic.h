@@ -60,6 +60,9 @@ private:
 
 	std::vector<ImageInfo> GetThumbnailInfo() const;
 	
+	static std::vector<std::vector<unsigned int>> ChooseTiles(std::vector<std::vector<std::vector<double>>> scores);
+	static wxImage BuildOutputImage(const std::vector<std::vector<unsigned int>>& chosenTiles, const std::vector<ImageInfo>& thumbnailInfo);
+	
 	std::vector<std::vector<double>> ScoreGrid(const TargetInfo& targetGrid, const InfoGrid& thumbnail) const;
 	double ComputeScore(const InfoGrid& targetSquare, const InfoGrid& thumbnail) const;
 	
