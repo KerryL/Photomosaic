@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
 	}
 	
 	PhotoMosaicConfigFile configFile;
-	if (!configFile.ReadConfiguration(argv[1]))
+	if (!configFile.ReadConfiguration(UString::ToStringType(argv[1])))
 		return 1;
 
 	if (configFile.config.seed > 0)

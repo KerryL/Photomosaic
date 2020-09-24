@@ -131,21 +131,21 @@ std::vector<Photomosaic::ImageInfo> Photomosaic::GetThumbnailInfo() const
 	
 	if (config.recursiveSourceDirectories)
 	{
-		for (auto& entry : std::filesystem::recursive_directory_iterator(config.centerFocusSourceDirectory))
+		for (auto& entry : stdfs::recursive_directory_iterator(config.centerFocusSourceDirectory))
 		{
 			ImageInfo tempInfo;
 			if (ProcessThumbnailDirectoryEntry(entry, config.thumbnailDirectory, CropHint::Center, tempInfo, config.thumbnailSize, config.subSamples))
 				info.push_back(std::move(tempInfo));
 		}
 
-		for (auto& entry : std::filesystem::recursive_directory_iterator(config.leftFocusSourceDirectory))
+		for (auto& entry : stdfs::recursive_directory_iterator(config.leftFocusSourceDirectory))
 		{
 			ImageInfo tempInfo;
 			if (ProcessThumbnailDirectoryEntry(entry, config.thumbnailDirectory, CropHint::Left, tempInfo, config.thumbnailSize, config.subSamples))
 				info.push_back(std::move(tempInfo));
 		}
 			
-		for (auto& entry : std::filesystem::recursive_directory_iterator(config.rightFocusSourceDirectory))
+		for (auto& entry : stdfs::recursive_directory_iterator(config.rightFocusSourceDirectory))
 		{
 			ImageInfo tempInfo;
 			if (ProcessThumbnailDirectoryEntry(entry, config.thumbnailDirectory, CropHint::Right, tempInfo, config.thumbnailSize, config.subSamples))
@@ -154,21 +154,21 @@ std::vector<Photomosaic::ImageInfo> Photomosaic::GetThumbnailInfo() const
 	}
 	else
 	{
-		for (auto& entry : std::filesystem::directory_iterator(config.centerFocusSourceDirectory))
+		for (auto& entry : stdfs::directory_iterator(config.centerFocusSourceDirectory))
 		{
 			ImageInfo tempInfo;
 			if (ProcessThumbnailDirectoryEntry(entry, config.thumbnailDirectory, CropHint::Center, tempInfo, config.thumbnailSize, config.subSamples))
 				info.push_back(std::move(tempInfo));
 		}
 
-		for (auto& entry : std::filesystem::directory_iterator(config.leftFocusSourceDirectory))
+		for (auto& entry : stdfs::directory_iterator(config.leftFocusSourceDirectory))
 		{
 			ImageInfo tempInfo;
 			if (ProcessThumbnailDirectoryEntry(entry, config.thumbnailDirectory, CropHint::Left, tempInfo, config.thumbnailSize, config.subSamples))
 				info.push_back(std::move(tempInfo));
 		}
 			
-		for (auto& entry : std::filesystem::directory_iterator(config.rightFocusSourceDirectory))
+		for (auto& entry : stdfs::directory_iterator(config.rightFocusSourceDirectory))
 		{
 			ImageInfo tempInfo;
 			if (ProcessThumbnailDirectoryEntry(entry, config.thumbnailDirectory, CropHint::Right, tempInfo, config.thumbnailSize, config.subSamples))
@@ -179,10 +179,14 @@ std::vector<Photomosaic::ImageInfo> Photomosaic::GetThumbnailInfo() const
 	return std::move(info);
 }
 
-bool Photomosaic::ProcessThumbnailDirectoryEntry(const std::filesystem::directory_entry& entry, const std::string& thumbnailDirectory, const CropHint& cropHint,
+bool Photomosaic::ProcessThumbnailDirectoryEntry(const stdfs::directory_entry& entry, const std::string& thumbnailDirectory, const CropHint& cropHint,
 	ImageInfo& info, const unsigned int& thumbnailSize, const unsigned int& subSamples)
 {
+#ifdef _WIN32
+	if (entry.status().type() != stdfs::file_type::regular)
+#else
 	if (!entry.is_regular_file())
+#endif// _WIN32
 		return false;
 		
 	bool foundExistingThumbnail(false);
@@ -234,7 +238,7 @@ bool Photomosaic::ProcessThumbnailDirectoryEntry(const std::filesystem::director
 		
 		if (!thumbnailDirectory.empty())
 		{
-			std::filesystem::path thumbnailPath(thumbnailDirectory);
+			stdfs::path thumbnailPath(thumbnailDirectory);
 			thumbnailPath.append(entry.path().filename().generic_string());
 			if (!info.image.SaveFile(thumbnailPath.generic_string()))
 				std::cerr << "Failed to write thumbnail to '" << thumbnailPath.generic_string() << '\'' << std::endl;
