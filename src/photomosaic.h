@@ -25,6 +25,12 @@
 #include <vector>
 #include <filesystem>
 
+#ifdef _WIN32
+namespace stdfs = std::experimental::filesystem;
+#else
+namespace stdfs = std::filesystem;
+#endif// _WIN32
+
 class Photomosaic
 {
 public:
@@ -63,7 +69,7 @@ private:
 		Right
 	};
 	
-	static bool ProcessThumbnailDirectoryEntry(const std::filesystem::directory_entry& entry, const std::string& thumbnailDirectory, const CropHint& cropHint,
+	static bool ProcessThumbnailDirectoryEntry(const stdfs::directory_entry& entry, const std::string& thumbnailDirectory, const CropHint& cropHint,
 		ImageInfo& info, const unsigned int& thumbnailSize, const unsigned int& subSamples);
 };
 
