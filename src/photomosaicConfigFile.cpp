@@ -60,60 +60,31 @@ bool PhotoMosaicConfigFile::ConfigIsOK()
 	if (config.centerFocusSourceDirectory.empty() && config.leftFocusSourceDirectory.empty() && config.rightFocusSourceDirectory.empty())
 	{
 		outStream << "Must specify at least one of " << GetKey(config.centerFocusSourceDirectory)
-			<< ", " << GetKey(config.leftFocusSourceDirectory << ", or " << GetKey(config.rightFocusSourceDirectory) << std::endl;
+			<< ", " << GetKey(config.leftFocusSourceDirectory) << ", or " << GetKey(config.rightFocusSourceDirectory) << std::endl;
 		ok = false;
 	}
 	
-	return ok;
+	ok = IsSpecified(config.targetImageFileName) && ok;
+	ok = IsSpecified(config.outputFileName) && ok;
 	
-	/*// Check to make sure arguments are valid
-	if (PhotoDirectory.empty())
-	{
-		cout << "ERROR:  Photo directory not specified!  Use option '-dir' to specify!" << endl;
-		exit(1);
-	}
+	ok = IsStrictlyPositive(config.thumbnailSize) && ok;
+	ok = IsStrictlyPositive(config.subDivisionSize) && ok;
+	ok = IsPositive(config.subSamples) && ok;
+	
+	ok = IsPositive(config.hueErrorWeight) && ok;
+	ok = IsPositive(config.saturationErrorWeight) && ok;
+	ok = IsPositive(config.valueErrorWeight) && ok;
+	
+	return ok;
+}
 
-	if (OutputFileName.empty())
+bool PhotoMosaicConfigFile::IsSpecified(const std::string& s)
+{
+	if (s.empty())
 	{
-		cout << "Warning:  Output file name not specified.  Use option '-o' to specify." << endl
-			<< "Using default output filename:  output.jpg" << endl;
-		OutputFileName.assign(_T("output.jpg"));
+		outStream << GetKey(s) << " must be specified" << std::endl;
+		return false;
 	}
-
-	if (BigPictureFileName.empty())
-	{
-		cout << "ERROR:  Big Picture file name not specified!  Use option '-big-pic' to specify!" << endl;
-		exit(1);
-	}
-
-	if (SubDivisionSize < 1)
-	{
-		cout << "ERROR:  Sub-division size is invalid!  Use option '-tilesize' to specify!" << endl;
-		cout << "This is the number of pixels of the Big Picture that will " <<
-			"become one sub-photo in the final image." << endl;
-		exit(1);
-	}
-
-	if (SubPictureSize < 1)
-	{
-		cout << "ERROR:  Sub-photo size is invalid!  Use option '-subsize' to specify!" << endl;
-		cout << "This is the size (width and height) to which each sub-photo will be resized." << endl;
-		exit(1);
-	}
-
-	if (SubSamples < 1)
-	{
-		cout << "Warning:  Sub-samples not specified!  Use option '-subsamples' to specify!" << endl;
-		cout << "Using default value 1 (one color sample per tile)." << endl;
-		SubSamples = 1;
-	}
-	else if (SubSamples > SubDivisionSize)
-	{
-		cout << "Warning:  Invalid number of sub-samples specified!  Sub samples must be "
-			<< "less or equal to sub-division size." << endl;
-		cout << "Setting sub-samples to " << SubDivisionSize << "." << endl;
-		SubSamples = SubDivisionSize;
-	}*/
 	
 	return true;
 }

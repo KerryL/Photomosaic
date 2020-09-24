@@ -27,6 +27,36 @@ protected:
 	void BuildConfigItems() override;
 	void AssignDefaults() override;
 	bool ConfigIsOK() override;
+	
+	bool IsSpecified(const std::string& s);
+	template<typename T>
+	bool IsStrictlyPositive(const T& t);
+	template<typename T>
+	bool IsPositive(const T& t);
 };
+
+template<typename T>
+bool PhotoMosaicConfigFile::IsStrictlyPositive(const T& t)
+{
+	if (t <= 0)
+	{
+		outStream << GetKey(t) << " must be strictly positive" << std::endl;
+		return false;
+	}
+	
+	return true;
+}
+
+template<typename T>
+bool PhotoMosaicConfigFile::IsPositive(const T& t)
+{
+	if (t < 0)
+	{
+		outStream << GetKey(t) << " must be positive" << std::endl;
+		return false;
+	}
+	
+	return true;
+}
 
 #endif// PHOTOMOSAIC_CONFIG_FILE_H_
