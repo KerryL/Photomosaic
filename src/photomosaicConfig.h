@@ -37,8 +37,11 @@ struct PhotomosaicConfig
 	bool allowMultipleOccurrences = true;
 	bool greyscaleOutput = false;
 	
-	double greyscaleMatchWeight;
-	double colorMatchWeight;
+	double hueErrorWeight;
+	double saturationErrorWeight;
+	double valueErrorWeight;
+	
+	// TODO:  Weight for penalty for being close to same image?
 };
 
 #endif// PHOTOMOSAIC_CONFIG_H_

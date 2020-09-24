@@ -36,9 +36,9 @@ private:
 	
 	struct SquareInfo
 	{
-		int red;
-		int green;
-		int blue;
+		double hue;
+		double saturation;
+		double value;
 	};
 	
 	typedef std::vector<std::vector<SquareInfo>> InfoGrid;
@@ -54,7 +54,8 @@ private:
 
 	std::vector<ImageInfo> GetThumbnailInfo() const;
 	
-	static std::vector<std::vector<double>> ScoreGrid(const TargetInfo& targetGrid, const InfoGrid& subInfo);
+	std::vector<std::vector<double>> ScoreGrid(const TargetInfo& targetGrid, const InfoGrid& thumbnail) const;
+	double ComputeScore(const InfoGrid& targetSquare, const InfoGrid& thumbnail) const;
 	
 	enum class CropHint
 	{
@@ -65,6 +66,9 @@ private:
 	
 	static bool ProcessThumbnailDirectoryEntry(const std::filesystem::directory_entry& entry, const std::string& thumbnailDirectory, const CropHint& cropHint,
 		ImageInfo& info, const unsigned int& thumbnailSize, const unsigned int& subSamples);
+		
+	static SquareInfo RGBToHSV(const double& red, const double& blue, const double& green);
+	static SquareInfo ComputeAverageColor(const std::vector<SquareInfo>& colors);
 };
 
 #endif// PHOTOMOSAIC_H_

@@ -55,7 +55,7 @@ wxImage Photomosaic::Build()
 	// Find the score for every thumbnail at every grid location
 	std::vector<std::vector<std::vector<double>>> scores(thumbnailInfo.size());
 	for (unsigned int i = 0; i < thumbnailInfo.size(); ++i)
-		scores[i] = ScoreGrid(targetInfo, thumbnailInfo[i].info);
+		scores[i] = ScoreGrid(targetInfo, thumbnailInfo[i].info);// Lower scores represent better fits
 		
 	// TODO:  Choose images
 	// TODO:  Build output image
@@ -73,33 +73,56 @@ Photomosaic::InfoGrid Photomosaic::GetColorInformation(const wxImage& image, con
 		info[x].resize(subSamples);
 		for (unsigned int y = 0; y < subSamples; ++y)
 		{
-			info[x][y].red = 0;
-			info[x][y].green = 0;
-			info[x][y].blue = 0;
-			
+			std::vector<SquareInfo> pixelValues(sampleDimension * sampleDimension);
 			for (unsigned int i = 0; i < sampleDimension; ++i)
 			{
 				for (unsigned int j = 0; j < sampleDimension; ++j)
 				{
-					info[x][y].red += image.GetRed(x * sampleDimension + i, y * sampleDimension + j);
-					info[x][y].green = image.GetGreen(x * sampleDimension + i, y * sampleDimension + j);
-					info[x][y].blue = image.GetBlue(x * sampleDimension + i, y * sampleDimension + j);
+					pixelValues[i * sampleDimension + j] = RGBToHSV(image.GetRed(x * sampleDimension + i, y * sampleDimension + j),
+						image.GetGreen(x * sampleDimension + i, y * sampleDimension + j),
+						image.GetBlue(x * sampleDimension + i, y * sampleDimension + j));
 				}
 			}
 			
-			info[x][y].red /= sampleDimension * sampleDimension;
-			info[x][y].green /= sampleDimension * sampleDimension;
-			info[x][y].blue /= sampleDimension * sampleDimension;
+			info[x][y] = ComputeAverageColor(pixelValues);
 		}
 	}
 	
 	return info;
 }
 	
-std::vector<std::vector<double>> Photomosaic::ScoreGrid(const TargetInfo& targetGrid, const InfoGrid& subInfo)
+std::vector<std::vector<double>> Photomosaic::ScoreGrid(const TargetInfo& targetGrid, const InfoGrid& thumbnail) const
 {
-	// TODO:  Implement
-	return std::vector<std::vector<double>>();
+	std::vector<std::vector<double>> scores(targetGrid.size());
+	for (unsigned int i = 0; i < targetGrid.size(); ++i)
+	{
+		scores[i].resize(targetGrid.front().size());
+		for (unsigned int j = 0; j < targetGrid.size(); ++j)
+			scores[i][j] = ComputeScore(targetGrid[i][j], thumbnail);
+	}
+	
+	return scores;
+}
+
+// Implemented as a cost function, so lower values represent better fits
+double Photomosaic::ComputeScore(const InfoGrid& targetSquare, const InfoGrid& thumbnail) const
+{
+	double score(0.0);
+	for (unsigned int i = 0; i < targetSquare.size(); ++i)
+	{
+		for (unsigned int j = 0; j < targetSquare.size(); ++j)
+		{
+			const double hueError(fmod(targetSquare[i][j].hue - thumbnail[i][j].hue, 1.0));
+			if (hueError > 0.5)
+				score += (1.0 - hueError) * config.hueErrorWeight;
+			else
+				score += hueError * config.hueErrorWeight;
+			score += fabs(targetSquare[i][j].saturation - thumbnail[i][j].saturation) * config.saturationErrorWeight;
+			score += fabs(targetSquare[i][j].value - thumbnail[i][j].value) * config.valueErrorWeight;
+		}
+	}
+	
+	return score;
 }
 
 std::vector<Photomosaic::ImageInfo> Photomosaic::GetThumbnailInfo() const
@@ -165,13 +188,34 @@ bool Photomosaic::ProcessThumbnailDirectoryEntry(const std::filesystem::director
 	bool foundExistingThumbnail(false);
 	if (!thumbnailDirectory.empty())
 	{
-		// TODO:  check for match in thumbnail directory first
+		const std::string sep([&thumbnailDirectory]()
+		{
+#ifdef _WIN32
+			if (thumbnailDirectory.back() != '\\')
+				return std::string("\\");
+#else
+			if (thumbnailDirectory.back() != '/')
+				return std::string("/");
+#endif
+			return std::string();
+		}());
+		
+		foundExistingThumbnail = info.image.LoadFile(thumbnailDirectory + sep + entry.path().filename().generic_string());
+		if (foundExistingThumbnail &&
+			(static_cast<unsigned int>(info.image.GetWidth()) != thumbnailSize || static_cast<unsigned int>(info.image.GetHeight()) != thumbnailSize))
+		{
+			std::cerr << "Loaded existing thumbnail; expected dimension = " << thumbnailSize << " but found dimension = " << info.image.GetWidth() << "x" << info.image.GetHeight() << '\n';
+			return false;
+		}
 	}
 		
 	if (!foundExistingThumbnail)
 	{
 		if (!info.image.LoadFile(entry.path().generic_string()))
+		{
+			std::cerr << "Failed to load image from '" << entry.path().generic_string() << "'\n";
 			return false;
+		}
 
 		if (info.image.GetHeight() > info.image.GetWidth())// No implementation for crop top/bottom, so force these to center vertically for now
 			info.image.Resize(wxSize(info.image.GetWidth(), info.image.GetWidth()), wxPoint(0, (info.image.GetHeight() - info.image.GetWidth()) / 2));
@@ -200,4 +244,58 @@ bool Photomosaic::ProcessThumbnailDirectoryEntry(const std::filesystem::director
 	info.info = GetColorInformation(info.image, subSamples);
 		
 	return true;
+}
+
+Photomosaic::SquareInfo Photomosaic::RGBToHSV(const double& red, const double& blue, const double& green)
+{
+	assert(red >= 0.0 && red <= 1.0);
+	assert(blue >= 0.0 && blue <= 1.0);
+	assert(green >= 0.0 && green <= 1.0);
+	
+	SquareInfo si;
+	const double maxColor(std::max(std::max(red, green), blue));
+	const double minColor(std::min(std::min(red, green), blue));
+	const double chroma(maxColor - minColor);
+	if (chroma == 0.0)
+		si.hue = 0.0;
+	else if (maxColor == red)
+		si.hue = (green - blue) / chroma;
+	else if (maxColor == green)
+		si.hue = (blue - red) / chroma + 2.0;
+	else// if (maxColor == blue)
+		si.hue = (red - green) / chroma + 4.0;
+		
+	// At this point, si.hue is in a range from -1.0 to 5.0, representing an angle between 0 and 360 deg on the color wheel
+	// Scale to lie within the range 0 to 1
+	si.hue = (si.hue + 1.0) / 6.0;
+
+	if (si.value == 0.0)
+		si.saturation = 0.0;
+	else
+		si.saturation = chroma / si.value;
+		
+	si.value = maxColor;
+		
+	return si;
+}
+
+Photomosaic::SquareInfo Photomosaic::ComputeAverageColor(const std::vector<SquareInfo>& colors)
+{
+	double hueX(0.0);
+	double hueY(0.0);
+	double saturation(0.0);
+	double value(0.0);
+	for (const auto& c : colors)
+	{
+		hueX += cos(c.hue * 2.0 * M_PI);
+		hueY += sin(c.hue * 2.0 * M_PI);
+		saturation += c.saturation;
+		value += c.value;
+	}
+	
+	SquareInfo si;
+	si.hue = atan2(hueY, hueX) / 2.0 / M_PI;
+	si.saturation = saturation / colors.size();
+	value = si.value / colors.size();
+	return si;
 }
