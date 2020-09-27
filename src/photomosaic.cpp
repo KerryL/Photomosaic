@@ -39,6 +39,7 @@ wxImage Photomosaic::Build()
 	
 	std::cout << "Image will require " << xTiles * yTiles << " tiles" << std::endl;
 	
+	// TODO:  Make this threaded
 	TargetInfo targetInfo(xTiles);
 	for (unsigned int x = 0; x < xTiles; ++x)
 	{
@@ -113,9 +114,9 @@ Photomosaic::InfoGrid Photomosaic::GetColorInformation(const wxImage& image, con
 			{
 				for (unsigned int j = 0; j < sampleDimension; ++j)
 				{
-					pixelValues[i * sampleDimension + j] = RGBToHSV(image.GetRed(x * sampleDimension + i, y * sampleDimension + j),
-						image.GetGreen(x * sampleDimension + i, y * sampleDimension + j),
-						image.GetBlue(x * sampleDimension + i, y * sampleDimension + j));
+					pixelValues[i * sampleDimension + j] = RGBToHSV(image.GetRed(x * sampleDimension + i, y * sampleDimension + j) / 255.0,
+						image.GetGreen(x * sampleDimension + i, y * sampleDimension + j) / 255.0,
+						image.GetBlue(x * sampleDimension + i, y * sampleDimension + j) / 255.0);
 				}
 			}
 			
@@ -214,6 +215,7 @@ std::vector<Photomosaic::ImageInfo> Photomosaic::GetThumbnailInfo() const
 	return std::move(info);
 }
 
+// TODO:  Make this threaded
 bool Photomosaic::ProcessThumbnailDirectoryEntry(const stdfs::directory_entry& entry, const std::string& thumbnailDirectory, const CropHint& cropHint,
 	ImageInfo& info, const unsigned int& thumbnailSize, const unsigned int& subSamples)
 {
@@ -239,6 +241,7 @@ bool Photomosaic::ProcessThumbnailDirectoryEntry(const stdfs::directory_entry& e
 			return std::string();
 		}());
 		
+		wxLogNull noLog;// Disable logging when loading image files since we expect that some or all may fail
 		foundExistingThumbnail = info.image.LoadFile(thumbnailDirectory + sep + entry.path().filename().generic_string());
 		if (foundExistingThumbnail &&
 			(static_cast<unsigned int>(info.image.GetWidth()) != thumbnailSize || static_cast<unsigned int>(info.image.GetHeight()) != thumbnailSize))
@@ -269,7 +272,7 @@ bool Photomosaic::ProcessThumbnailDirectoryEntry(const stdfs::directory_entry& e
 			assert(false && "unexpected crop hint");
 		}
 		
-		info.image.Scale(thumbnailSize, thumbnailSize);
+		info.image.Rescale(thumbnailSize, thumbnailSize);
 		
 		if (!thumbnailDirectory.empty())
 		{
