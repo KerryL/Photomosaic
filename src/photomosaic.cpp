@@ -39,18 +39,17 @@ wxImage Photomosaic::Build()
 	
 	std::cout << "Image will require " << xTiles * yTiles << " tiles" << std::endl;
 	
-	// TODO:  Make this threaded
+	ThreadPool pool(std::thread::hardware_concurrency() * 2);
 	TargetInfo targetInfo(xTiles);
 	for (unsigned int x = 0; x < xTiles; ++x)
 	{
 		targetInfo[x].resize(yTiles);
 		for (unsigned int y = 0; y < yTiles; ++y)
-		{
-			targetInfo[x][y] = GetColorInformation(targetImage.GetSubImage(wxRect(
-				xOffset + x * config.subDivisionSize, yOffset + y * config.subDivisionSize,
-				config.subDivisionSize, config.subDivisionSize)), config.subSamples);
-		}
+			pool.AddJob(std::make_unique<TileProcessJob>(targetImage.GetSubImage(wxRect(xOffset + x * config.subDivisionSize, yOffset + y * config.subDivisionSize,
+				config.subDivisionSize, config.subDivisionSize)), config.subSamples, targetInfo[x][y]));
 	}
+	
+	pool.WaitForAllJobsComplete();
 	
 	const auto thumbnailInfo(GetThumbnailInfo());
 	
@@ -164,58 +163,37 @@ double Photomosaic::ComputeScore(const InfoGrid& targetSquare, const InfoGrid& t
 std::vector<Photomosaic::ImageInfo> Photomosaic::GetThumbnailInfo() const
 {
 	std::vector<Photomosaic::ImageInfo> info;
+	ThreadPool pool(std::thread::hardware_concurrency() * 2);
+	std::mutex infoAccessMutex;
+	// TODO:  Implement threading
 	
 	if (config.recursiveSourceDirectories)
 	{
 		for (auto& entry : stdfs::recursive_directory_iterator(config.centerFocusSourceDirectory))
-		{
-			ImageInfo tempInfo;
-			if (ProcessThumbnailDirectoryEntry(entry, config.thumbnailDirectory, CropHint::Center, tempInfo, config.thumbnailSize, config.subSamples))
-				info.push_back(std::move(tempInfo));
-		}
+			pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Center, info, infoAccessMutex));
 
 		for (auto& entry : stdfs::recursive_directory_iterator(config.leftFocusSourceDirectory))
-		{
-			ImageInfo tempInfo;
-			if (ProcessThumbnailDirectoryEntry(entry, config.thumbnailDirectory, CropHint::Left, tempInfo, config.thumbnailSize, config.subSamples))
-				info.push_back(std::move(tempInfo));
-		}
+			pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Left, info, infoAccessMutex));
 			
 		for (auto& entry : stdfs::recursive_directory_iterator(config.rightFocusSourceDirectory))
-		{
-			ImageInfo tempInfo;
-			if (ProcessThumbnailDirectoryEntry(entry, config.thumbnailDirectory, CropHint::Right, tempInfo, config.thumbnailSize, config.subSamples))
-				info.push_back(std::move(tempInfo));
-		}
+			pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Right, info, infoAccessMutex));
 	}
 	else
 	{
 		for (auto& entry : stdfs::directory_iterator(config.centerFocusSourceDirectory))
-		{
-			ImageInfo tempInfo;
-			if (ProcessThumbnailDirectoryEntry(entry, config.thumbnailDirectory, CropHint::Center, tempInfo, config.thumbnailSize, config.subSamples))
-				info.push_back(std::move(tempInfo));
-		}
+			pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Center, info, infoAccessMutex));
 
 		for (auto& entry : stdfs::directory_iterator(config.leftFocusSourceDirectory))
-		{
-			ImageInfo tempInfo;
-			if (ProcessThumbnailDirectoryEntry(entry, config.thumbnailDirectory, CropHint::Left, tempInfo, config.thumbnailSize, config.subSamples))
-				info.push_back(std::move(tempInfo));
-		}
+			pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Left, info, infoAccessMutex));
 			
 		for (auto& entry : stdfs::directory_iterator(config.rightFocusSourceDirectory))
-		{
-			ImageInfo tempInfo;
-			if (ProcessThumbnailDirectoryEntry(entry, config.thumbnailDirectory, CropHint::Right, tempInfo, config.thumbnailSize, config.subSamples))
-				info.push_back(std::move(tempInfo));
-		}
+			pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Right, info, infoAccessMutex));
 	}
 	
+	pool.WaitForAllJobsComplete();
 	return std::move(info);
 }
 
-// TODO:  Make this threaded
 bool Photomosaic::ProcessThumbnailDirectoryEntry(const stdfs::directory_entry& entry, const std::string& thumbnailDirectory, const CropHint& cropHint,
 	ImageInfo& info, const unsigned int& thumbnailSize, const unsigned int& subSamples)
 {

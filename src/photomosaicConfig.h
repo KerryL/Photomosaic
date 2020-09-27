@@ -22,6 +22,7 @@ struct PhotomosaicConfig
 	std::string centerFocusSourceDirectory;
 	std::string leftFocusSourceDirectory;
 	std::string rightFocusSourceDirectory;
+	// TODO:  Method for choosing to crop smaller square from image?  Scaled crop folders with different scale factor specifications?
 	
 	std::string targetImageFileName;
 	std::string outputFileName;

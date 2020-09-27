@@ -16,6 +16,7 @@
 
 // Local headers
 #include "photomosaicConfig.h"
+#include "threadPool.h"
 
 // wxWidgets headers
 #include <wx/wx.h>
@@ -78,6 +79,47 @@ private:
 		
 	static SquareInfo RGBToHSV(const double& red, const double& blue, const double& green);
 	static SquareInfo ComputeAverageColor(const std::vector<SquareInfo>& colors);
+	
+	class ThumbnailProcessJob : public ThreadPool::JobInfoBase
+	{
+	public:
+		ThumbnailProcessJob(const stdfs::directory_entry& entry, const PhotomosaicConfig& config,
+			const CropHint& cropHint, std::vector<Photomosaic::ImageInfo>& info, std::mutex& mutex) : entry(entry), config(config), cropHint(cropHint), info(info), mutex(mutex) {}
+		
+	protected:
+		const stdfs::directory_entry entry;
+		const PhotomosaicConfig& config;
+		const CropHint cropHint;
+		
+		std::vector<Photomosaic::ImageInfo>& info;
+		std::mutex& mutex;
+			
+		void DoJob() override
+		{
+			ImageInfo tempInfo;
+			if (ProcessThumbnailDirectoryEntry(entry, config.thumbnailDirectory, cropHint, tempInfo, config.thumbnailSize, config.subSamples))
+			{
+				std::lock_guard<std::mutex> lock(mutex);
+				info.push_back(std::move(tempInfo));
+			}
+		}
+	};
+	
+	class TileProcessJob : public ThreadPool::JobInfoBase
+	{
+	public:
+		TileProcessJob(const wxImage&& subRect, const unsigned int& subSamples, InfoGrid& targetInfo) : subRect(std::move(subRect)), subSamples(subSamples), targetInfo(targetInfo) {}
+		
+	protected:
+		const wxImage subRect;
+		const unsigned int subSamples;
+		InfoGrid& targetInfo;
+		
+		void DoJob() override
+		{
+			targetInfo = GetColorInformation(subRect, subSamples);
+		}
+	};
 };
 
 #endif// PHOTOMOSAIC_H_
