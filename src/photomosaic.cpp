@@ -246,7 +246,8 @@ bool Photomosaic::ProcessThumbnailDirectoryEntry(const stdfs::directory_entry& e
 		if (foundExistingThumbnail &&
 			(static_cast<unsigned int>(info.image.GetWidth()) != thumbnailSize || static_cast<unsigned int>(info.image.GetHeight()) != thumbnailSize))
 		{
-			std::cerr << "Loaded existing thumbnail; expected dimension = " << thumbnailSize << " but found dimension = " << info.image.GetWidth() << "x" << info.image.GetHeight() << '\n';
+			std::cerr << "Loaded existing thumbnail; expected dimension = " << thumbnailSize << "x" << thumbnailSize
+				<< " but found dimension = " << info.image.GetWidth() << "x" << info.image.GetHeight() << '\n';
 			return false;
 		}
 	}
@@ -259,19 +260,23 @@ bool Photomosaic::ProcessThumbnailDirectoryEntry(const stdfs::directory_entry& e
 			return false;
 		}
 
-		if (info.image.GetHeight() > info.image.GetWidth())// No implementation for crop top/bottom, so force these to center vertically for now
-			info.image.Resize(wxSize(info.image.GetWidth(), info.image.GetWidth()), wxPoint(0, (info.image.GetHeight() - info.image.GetWidth()) / 2));
+		const int minDim(std::min(info.image.GetHeight(), info.image.GetWidth()));
+		const wxSize squareSize(minDim, minDim);
+		wxPoint offset;
+		if (minDim == info.image.GetWidth())// No implementation for crop top/bottom, so force these to center vertically for now
+			offset = wxPoint(0, (info.image.GetWidth() - info.image.GetHeight()) / 2);
 		else if (cropHint == CropHint::Center)
-			info.image.Resize(wxSize(info.image.GetHeight(), info.image.GetHeight()), wxPoint((info.image.GetWidth() - info.image.GetHeight()) / 2, 0));
+			offset = wxPoint((minDim - info.image.GetWidth()) / 2, 0);
 		else if (cropHint == CropHint::Left)
-			info.image.Resize(wxSize(info.image.GetHeight(), info.image.GetHeight()), wxPoint(0, 0));
+			offset = wxPoint(0, 0);
 		else if (cropHint == CropHint::Right)
-			info.image.Resize(wxSize(info.image.GetHeight(), info.image.GetHeight()), wxPoint(info.image.GetWidth() - info.image.GetHeight(), 0));
+			offset = wxPoint(minDim - info.image.GetWidth(), 0);
 		else
 		{
 			assert(false && "unexpected crop hint");
 		}
-		
+
+		info.image.Resize(squareSize, offset);
 		info.image.Rescale(thumbnailSize, thumbnailSize);
 		
 		if (!thumbnailDirectory.empty())
