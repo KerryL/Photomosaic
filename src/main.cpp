@@ -21,6 +21,9 @@
 #include <iostream>
 #include <ctime>
 
+// wxWidgets headers
+#include <wx/app.h>
+
 void ReportConfiguration(const PhotomosaicConfig& config)
 {
 	std::cout << "\nUsing photos from:\n  Center-focused:  " << config.centerFocusSourceDirectory
@@ -45,6 +48,9 @@ void ReportConfiguration(const PhotomosaicConfig& config)
 
 int main(int argc, char *argv[])
 {
+	if (!wxInitialize())
+		return 1;
+
 	if (argc != 2)
 	{
 		std::cout << "Usage:  " << argv[0] << " <config file name>" << std::endl;
@@ -53,7 +59,10 @@ int main(int argc, char *argv[])
 	
 	PhotoMosaicConfigFile configFile;
 	if (!configFile.ReadConfiguration(UString::ToStringType(argv[1])))
+	{
+		wxUninitialize();
 		return 1;
+	}
 
 	if (configFile.config.seed > 0)
 		srand(configFile.config.seed);
@@ -69,8 +78,10 @@ int main(int argc, char *argv[])
 	if (!mosaic.SaveFile(configFile.config.outputFileName))
 	{
 		std::cerr << "Failed to write image to '" << configFile.config.outputFileName << "'\n";
+		wxUninitialize();
 		return 1;
 	}
 	
+	wxUninitialize();
 	return 0;
 }
