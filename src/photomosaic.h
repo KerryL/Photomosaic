@@ -19,7 +19,6 @@
 #include "threadPool.h"
 
 // wxWidgets headers
-#include <wx/wx.h>
 #include <wx/image.h>
 
 // Standard C++ headers

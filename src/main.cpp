@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 
 	ReportConfiguration(configFile.config);
 	wxInitAllImageHandlers();
-	
+
 	Photomosaic photomosaic(configFile.config);
 	wxImage mosaic(photomosaic.Build());
 

@@ -19,6 +19,9 @@
 #include <iostream>
 #include <algorithm>
 
+// wxWidgets headers
+#include <wx/log.h>
+
 wxImage Photomosaic::Build()
 {
 	wxImage targetImage;
@@ -68,13 +71,22 @@ wxImage Photomosaic::Build()
 std::vector<std::vector<unsigned int>> Photomosaic::ChooseTiles(std::vector<std::vector<std::vector<double>>> scores)
 {
 	// TODO:  Modify algorithm to include a penalty for using too many of a sinagle image or too many of the same image in a small area
-	std::vector<std::vector<unsigned int>> chosenIndices(scores.size());
-	for (unsigned int x = 0; x < scores.size(); ++x)
+	std::vector<std::vector<unsigned int>> chosenIndices(scores.front().size());
+	for (unsigned int x = 0; x < scores.front().size(); ++x)
 	{
-		chosenIndices[x].resize(scores[x].size());
-		for (unsigned int y = 0; y < scores.front().size(); ++y)
+		chosenIndices[x].resize(scores.front().front().size());
+		for (unsigned int y = 0; y < scores.front().front().size(); ++y)
 		{
-			const auto bestScoreIndex(std::distance(std::max_element(scores[x][y].begin(), scores[x][y].end()), scores[x][y].begin()));
+			double bestScore(std::numeric_limits<double>::max());
+			unsigned int bestScoreIndex(0);
+			for (unsigned int thumb = 0; thumb < scores.size(); ++thumb)
+			{
+				if (scores[thumb][x][y] < bestScore)
+				{
+					bestScore = scores[thumb][x][y];
+					bestScoreIndex = thumb;
+				}
+			}
 			chosenIndices[x][y] = bestScoreIndex;
 		}
 	}
@@ -224,6 +236,7 @@ bool Photomosaic::ProcessThumbnailDirectoryEntry(const stdfs::directory_entry& e
 #endif// _WIN32
 		return false;
 		
+	wxLogNull noLog;// Disable logging when loading image files since we expect that some or all may fail
 	bool foundExistingThumbnail(false);
 	if (!thumbnailDirectory.empty())
 	{
@@ -238,8 +251,7 @@ bool Photomosaic::ProcessThumbnailDirectoryEntry(const stdfs::directory_entry& e
 #endif
 			return std::string();
 		}());
-		
-		wxLogNull noLog;// Disable logging when loading image files since we expect that some or all may fail
+
 		foundExistingThumbnail = info.image.LoadFile(thumbnailDirectory + sep + entry.path().filename().generic_string());
 		if (foundExistingThumbnail &&
 			(static_cast<unsigned int>(info.image.GetWidth()) != thumbnailSize || static_cast<unsigned int>(info.image.GetHeight()) != thumbnailSize))
@@ -314,12 +326,12 @@ Photomosaic::SquareInfo Photomosaic::RGBToHSV(const double& red, const double& b
 	// Scale to lie within the range 0 to 1
 	si.hue = (si.hue + 1.0) / 6.0;
 
+	si.value = maxColor;
+
 	if (si.value == 0.0)
 		si.saturation = 0.0;
 	else
 		si.saturation = chroma / si.value;
-		
-	si.value = maxColor;
 		
 	return si;
 }
@@ -341,6 +353,6 @@ Photomosaic::SquareInfo Photomosaic::ComputeAverageColor(const std::vector<Squar
 	SquareInfo si;
 	si.hue = atan2(hueY, hueX) / 2.0 / M_PI;
 	si.saturation = saturation / colors.size();
-	value = si.value / colors.size();
+	si.value = value / colors.size();
 	return si;
 }
