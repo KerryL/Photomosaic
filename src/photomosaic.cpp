@@ -37,7 +37,7 @@ wxImage Photomosaic::Build()
 	const unsigned int xOffset(width - xTiles * config.subDivisionSize);
 	const unsigned int yOffset(height - yTiles * config.subDivisionSize);
 	
-	std::cout << "Image will require " << xTiles * yTiles << " tiles" << std::endl;
+	std::cout << "Image will require " << xTiles * yTiles << " tiles\nExtracting information from source image..." << std::endl;
 	
 	ThreadPool pool(std::thread::hardware_concurrency() * 2);
 	TargetInfo targetInfo(xTiles);
@@ -51,14 +51,17 @@ wxImage Photomosaic::Build()
 	
 	pool.WaitForAllJobsComplete();
 	
+	std::cout << "Preparing thumbnails..." << std::endl;
 	const auto thumbnailInfo(GetThumbnailInfo());
 	
 	// Find the score for every thumbnail at every grid location
+	std::cout << "Scoring tiles..." << std::endl;
 	std::vector<std::vector<std::vector<double>>> scores(thumbnailInfo.size());
 	for (unsigned int i = 0; i < thumbnailInfo.size(); ++i)
 		scores[i] = ScoreGrid(targetInfo, thumbnailInfo[i].info);// Lower scores represent better fits
-
 	const auto chosenTileIndices(ChooseTiles(scores));
+	
+	std::cout << "Building output image..." << std::endl;
 	return std::move(BuildOutputImage(chosenTileIndices, thumbnailInfo));
 }
 
@@ -87,8 +90,8 @@ wxImage Photomosaic::BuildOutputImage(const std::vector<std::vector<unsigned int
 		for (unsigned int j = 0; j < static_cast<unsigned int>(image.GetHeight()); ++j)
 		{
 			const auto thumbnailSize(thumbnailInfo.front().image.GetWidth());
-			const auto xChoice(i / chosenTileIndices.size());
-			const auto yChoice(j / chosenTileIndices.front().size());
+			const auto xChoice(i / thumbnailSize);
+			const auto yChoice(j / thumbnailSize);
 			const auto& thumb(thumbnailInfo[chosenTileIndices[xChoice][yChoice]].image);
 			const auto xOffset(i - xChoice * thumbnailSize);
 			const auto yOffset(j - yChoice * thumbnailSize);
@@ -132,7 +135,7 @@ std::vector<std::vector<double>> Photomosaic::ScoreGrid(const TargetInfo& target
 	for (unsigned int i = 0; i < targetGrid.size(); ++i)
 	{
 		scores[i].resize(targetGrid.front().size());
-		for (unsigned int j = 0; j < targetGrid.size(); ++j)
+		for (unsigned int j = 0; j < targetGrid[i].size(); ++j)
 			scores[i][j] = ComputeScore(targetGrid[i][j], thumbnail);
 	}
 	
@@ -145,7 +148,7 @@ double Photomosaic::ComputeScore(const InfoGrid& targetSquare, const InfoGrid& t
 	double score(0.0);
 	for (unsigned int i = 0; i < targetSquare.size(); ++i)
 	{
-		for (unsigned int j = 0; j < targetSquare.size(); ++j)
+		for (unsigned int j = 0; j < targetSquare.front().size(); ++j)
 		{
 			const double hueError(fmod(targetSquare[i][j].hue - thumbnail[i][j].hue, 1.0));
 			if (hueError > 0.5)
@@ -165,29 +168,46 @@ std::vector<Photomosaic::ImageInfo> Photomosaic::GetThumbnailInfo() const
 	std::vector<Photomosaic::ImageInfo> info;
 	ThreadPool pool(std::thread::hardware_concurrency() * 2);
 	std::mutex infoAccessMutex;
-	// TODO:  Implement threading
 	
 	if (config.recursiveSourceDirectories)
 	{
-		for (auto& entry : stdfs::recursive_directory_iterator(config.centerFocusSourceDirectory))
-			pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Center, info, infoAccessMutex));
+		if (!config.centerFocusSourceDirectory.empty())
+		{
+			for (auto& entry : stdfs::recursive_directory_iterator(config.centerFocusSourceDirectory))
+				pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Center, info, infoAccessMutex));
+		}
 
-		for (auto& entry : stdfs::recursive_directory_iterator(config.leftFocusSourceDirectory))
-			pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Left, info, infoAccessMutex));
+		if (!config.leftFocusSourceDirectory.empty())
+		{
+			for (auto& entry : stdfs::recursive_directory_iterator(config.leftFocusSourceDirectory))
+				pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Left, info, infoAccessMutex));
+		}
 			
-		for (auto& entry : stdfs::recursive_directory_iterator(config.rightFocusSourceDirectory))
-			pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Right, info, infoAccessMutex));
+		if (!config.rightFocusSourceDirectory.empty())
+		{
+			for (auto& entry : stdfs::recursive_directory_iterator(config.rightFocusSourceDirectory))
+				pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Right, info, infoAccessMutex));
+		}
 	}
 	else
 	{
-		for (auto& entry : stdfs::directory_iterator(config.centerFocusSourceDirectory))
-			pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Center, info, infoAccessMutex));
+		if (!config.centerFocusSourceDirectory.empty())
+		{
+			for (auto& entry : stdfs::directory_iterator(config.centerFocusSourceDirectory))
+				pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Center, info, infoAccessMutex));
+		}
 
-		for (auto& entry : stdfs::directory_iterator(config.leftFocusSourceDirectory))
-			pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Left, info, infoAccessMutex));
+		if (!config.leftFocusSourceDirectory.empty())
+		{
+			for (auto& entry : stdfs::directory_iterator(config.leftFocusSourceDirectory))
+				pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Left, info, infoAccessMutex));
+		}
 			
-		for (auto& entry : stdfs::directory_iterator(config.rightFocusSourceDirectory))
-			pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Right, info, infoAccessMutex));
+		if (!config.rightFocusSourceDirectory.empty())
+		{
+			for (auto& entry : stdfs::directory_iterator(config.rightFocusSourceDirectory))
+				pool.AddJob(std::make_unique<ThumbnailProcessJob>(entry, config, CropHint::Right, info, infoAccessMutex));
+		}
 	}
 	
 	pool.WaitForAllJobsComplete();
@@ -229,7 +249,7 @@ bool Photomosaic::ProcessThumbnailDirectoryEntry(const stdfs::directory_entry& e
 			return false;
 		}
 	}
-		
+
 	if (!foundExistingThumbnail)
 	{
 		if (!info.image.LoadFile(entry.path().generic_string()))
