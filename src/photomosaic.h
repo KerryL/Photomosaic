@@ -59,11 +59,21 @@ private:
 	};
 
 	std::vector<ImageInfo> GetThumbnailInfo() const;
+
+	struct TileScore
+	{
+		unsigned int thumbnailIndex;
+		double score;
+	};
+
+	typedef std::vector<std::vector<std::vector<TileScore>>> ScoreGrid;
 	
-	static std::vector<std::vector<unsigned int>> ChooseTiles(std::vector<std::vector<std::vector<double>>> scores);
+	static ScoreGrid CreateSortedScoreGrid(const std::vector<std::vector<std::vector<double>>>& scores);
+	static std::vector<std::vector<unsigned int>> ChooseTiles(ScoreGrid& scores, const PhotomosaicConfig& config);
+	static void ApplyDistancePenalty(ScoreGrid& scores, const PhotomosaicConfig& config);
 	static wxImage BuildOutputImage(const std::vector<std::vector<unsigned int>>& chosenTiles, const std::vector<ImageInfo>& thumbnailInfo);
 	
-	std::vector<std::vector<double>> ScoreGrid(const TargetInfo& targetGrid, const InfoGrid& thumbnail) const;
+	std::vector<std::vector<double>> ScoreAllThumbnailsOnGrid(const TargetInfo& targetGrid, const InfoGrid& thumbnail) const;
 	double ComputeScore(const InfoGrid& targetSquare, const InfoGrid& thumbnail) const;
 	
 	enum class CropHint
@@ -117,6 +127,24 @@ private:
 		void DoJob() override
 		{
 			targetInfo = GetColorInformation(subRect, subSamples);
+		}
+	};
+
+	class ScoringJob : public ThreadPool::JobInfoBase
+	{
+	public:
+		ScoringJob(const Photomosaic& self, const TargetInfo& targetInfo, const InfoGrid& thumbnail,
+			std::vector<std::vector<double>>& score) : self(self), targetInfo(targetInfo), thumbnail(thumbnail), score(score) {}
+
+	protected:
+		const Photomosaic& self;
+		const TargetInfo& targetInfo;
+		const InfoGrid& thumbnail;
+		std::vector<std::vector<double>>& score;
+
+		void DoJob() override
+		{
+			score = self.ScoreAllThumbnailsOnGrid(targetInfo, thumbnail);
 		}
 	};
 };

@@ -59,39 +59,121 @@ wxImage Photomosaic::Build()
 	
 	// Find the score for every thumbnail at every grid location
 	std::cout << "Scoring tiles..." << std::endl;
-	std::vector<std::vector<std::vector<double>>> scores(thumbnailInfo.size());
+	std::vector<std::vector<std::vector<double>>> scores(thumbnailInfo.size());// Lower scores represent better fit
 	for (unsigned int i = 0; i < thumbnailInfo.size(); ++i)
-		scores[i] = ScoreGrid(targetInfo, thumbnailInfo[i].info);// Lower scores represent better fits
-	const auto chosenTileIndices(ChooseTiles(scores));
+		pool.AddJob(std::make_unique<ScoringJob>(*this, targetInfo, thumbnailInfo[i].info, scores[i]));
+	pool.WaitForAllJobsComplete();
+	auto sortedScores(CreateSortedScoreGrid(scores));
+	const auto chosenTileIndices(ChooseTiles(sortedScores, config));
 	
 	std::cout << "Building output image..." << std::endl;
 	return std::move(BuildOutputImage(chosenTileIndices, thumbnailInfo));
 }
 
-std::vector<std::vector<unsigned int>> Photomosaic::ChooseTiles(std::vector<std::vector<std::vector<double>>> scores)
+Photomosaic::ScoreGrid Photomosaic::CreateSortedScoreGrid(const std::vector<std::vector<std::vector<double>>>& scores)
 {
-	// TODO:  Modify algorithm to include a penalty for using too many of a sinagle image or too many of the same image in a small area
-	std::vector<std::vector<unsigned int>> chosenIndices(scores.front().size());
+	ScoreGrid sortedScores(scores.front().size());
 	for (unsigned int x = 0; x < scores.front().size(); ++x)
 	{
-		chosenIndices[x].resize(scores.front().front().size());
+		sortedScores[x].resize(scores.front().front().size());
 		for (unsigned int y = 0; y < scores.front().front().size(); ++y)
 		{
-			double bestScore(std::numeric_limits<double>::max());
-			unsigned int bestScoreIndex(0);
+			sortedScores[x][y].resize(scores.size());
 			for (unsigned int thumb = 0; thumb < scores.size(); ++thumb)
 			{
-				if (scores[thumb][x][y] < bestScore)
-				{
-					bestScore = scores[thumb][x][y];
-					bestScoreIndex = thumb;
-				}
+				sortedScores[x][y][thumb].thumbnailIndex = thumb;
+				sortedScores[x][y][thumb].score = scores[thumb][x][y];
 			}
-			chosenIndices[x][y] = bestScoreIndex;
+
+			std::sort(sortedScores[x][y].begin(), sortedScores[x][y].end(), [](const TileScore& a, const TileScore& b)
+			{
+				return a.score < b.score;
+			});
 		}
+	}
+
+	return sortedScores;
+}
+
+std::vector<std::vector<unsigned int>> Photomosaic::ChooseTiles(ScoreGrid& scores, const PhotomosaicConfig& config)
+{
+	if (config.distancePenaltyScale > 0)
+		ApplyDistancePenalty(scores, config);
+
+	std::vector<std::vector<unsigned int>> chosenIndices(scores.size());
+	for (unsigned int x = 0; x < scores.size(); ++x)
+	{
+		chosenIndices[x].resize(scores.front().size());
+		for (unsigned int y = 0; y < scores.front().size(); ++y)
+			chosenIndices[x][y] = scores[x][y].front().thumbnailIndex;
 	}
 	
 	return chosenIndices;
+}
+
+// The distance penalty is generated using a "repulsive force" type model.  So the closer two tiles
+// are, the stronger they repel each other and the higher the penalty added to both tiles.
+void Photomosaic::ApplyDistancePenalty(ScoreGrid& scores, const PhotomosaicConfig& config)
+{
+	struct Coordinate
+	{
+		Coordinate() = default;
+		Coordinate(const unsigned int& x, const unsigned int& y) : x(x), y(y) {}
+
+		unsigned int x;
+		unsigned int y;
+	};
+
+	for (unsigned int thumb = 0; thumb < scores.front().front().size(); ++thumb)
+	{
+		std::vector<std::vector<double>> penalty(scores.size());
+		std::vector<Coordinate> coords;
+		for (unsigned int x = 0; x < penalty.size(); ++x)
+		{
+			penalty[x].resize(scores.front().size());
+			for (unsigned int y = 0; y < penalty.front().size(); ++y)
+			{
+				if (scores[x][y].front().thumbnailIndex == thumb)
+				{
+					penalty[x][y] = 1.0;
+					coords.push_back(Coordinate(x, y));
+				}
+				else
+					penalty[x][y] = 0.0;
+			}
+		}
+
+		if (config.distancePenaltyCountThreshold > 0 && coords.size() < config.distancePenaltyCountThreshold)
+			continue;
+
+		std::vector<std::vector<double>> distances(coords.size());
+		const unsigned int refDistance(scores.size() * scores.size() + scores.front().size() * scores.front().size());
+		for (unsigned int i = 0; i < distances.size(); ++i)
+		{
+			distances[i].resize(distances.size());
+			for (unsigned int j = 0; j < distances.front().size(); ++j)
+				distances[i][j] = static_cast<double>((coords[i].x - coords[j].x) * (coords[i].x - coords[j].x) + (coords[i].y - coords[j].y) * (coords[i].y - coords[j].y)) / refDistance;
+		}
+
+		for (unsigned int i = 0; i < coords.size(); ++i)
+		{
+			double sumRecipDistance(0.0);
+			for (unsigned int j = 0; j < distances.size(); ++j)
+			{
+				if (distances[i][j] > 0.0)
+					sumRecipDistance += 1.0 / distances[i][j];
+			}
+
+			assert(penalty[coords[i].x][coords[i].y] == 1.0);
+			penalty[coords[i].x][coords[i].y] = sumRecipDistance * config.distancePenaltyScale;
+		}
+
+		for (unsigned int x = 0; x < penalty.size(); ++x)
+		{
+			for (unsigned int y = 0; y < penalty.front().size(); ++y)
+				scores[x][y].front().score += penalty[x][y];
+		}
+	}
 }
 
 wxImage Photomosaic::BuildOutputImage(const std::vector<std::vector<unsigned int>>& chosenTileIndices, const std::vector<ImageInfo>& thumbnailInfo)
@@ -141,7 +223,7 @@ Photomosaic::InfoGrid Photomosaic::GetColorInformation(const wxImage& image, con
 	return info;
 }
 	
-std::vector<std::vector<double>> Photomosaic::ScoreGrid(const TargetInfo& targetGrid, const InfoGrid& thumbnail) const
+std::vector<std::vector<double>> Photomosaic::ScoreAllThumbnailsOnGrid(const TargetInfo& targetGrid, const InfoGrid& thumbnail) const
 {
 	std::vector<std::vector<double>> scores(targetGrid.size());
 	for (unsigned int i = 0; i < targetGrid.size(); ++i)
@@ -151,7 +233,7 @@ std::vector<std::vector<double>> Photomosaic::ScoreGrid(const TargetInfo& target
 			scores[i][j] = ComputeScore(targetGrid[i][j], thumbnail);
 	}
 	
-	return scores;
+	return std::move(scores);
 }
 
 // Implemented as a cost function, so lower values represent better fits
@@ -235,8 +317,9 @@ bool Photomosaic::ProcessThumbnailDirectoryEntry(const stdfs::directory_entry& e
 	if (!entry.is_regular_file())
 #endif// _WIN32
 		return false;
-		
+
 	wxLogNull noLog;// Disable logging when loading image files since we expect that some or all may fail
+
 	bool foundExistingThumbnail(false);
 	if (!thumbnailDirectory.empty())
 	{

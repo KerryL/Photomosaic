@@ -22,7 +22,6 @@ struct PhotomosaicConfig
 	std::string centerFocusSourceDirectory;
 	std::string leftFocusSourceDirectory;
 	std::string rightFocusSourceDirectory;
-	// TODO:  Method for choosing to crop smaller square from image?  Scaled crop folders with different scale factor specifications?
 	
 	std::string targetImageFileName;
 	std::string outputFileName;
@@ -32,8 +31,6 @@ struct PhotomosaicConfig
 	int subDivisionSize = 0;
 	int subSamples = 0;
 	
-	int seed = -1;
-	
 	bool recursiveSourceDirectories = false;
 	bool allowMultipleOccurrences = true;
 	bool greyscaleOutput = false;
@@ -42,7 +39,8 @@ struct PhotomosaicConfig
 	double saturationErrorWeight;
 	double valueErrorWeight;
 	
-	// TODO:  Weight for penalty for being close to same image?
+	unsigned int distancePenaltyCountThreshold;
+	double distancePenaltyScale;
 };
 
 #endif// PHOTOMOSAIC_CONFIG_H_

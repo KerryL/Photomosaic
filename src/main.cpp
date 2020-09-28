@@ -19,7 +19,6 @@
 
 // Standard C++ headers
 #include <iostream>
-#include <ctime>
 
 // wxWidgets headers
 #include <wx/app.h>
@@ -63,11 +62,6 @@ int main(int argc, char *argv[])
 		wxUninitialize();
 		return 1;
 	}
-
-	if (configFile.config.seed > 0)
-		srand(configFile.config.seed);
-	else
-		srand(time(nullptr));
 
 	ReportConfiguration(configFile.config);
 	wxInitAllImageHandlers();

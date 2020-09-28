@@ -27,7 +27,6 @@ void PhotoMosaicConfigFile::BuildConfigItems()
 	AddConfigItem(_T("THUMBNAIL_SIZE"), config.thumbnailSize);
 	AddConfigItem(_T("SUBDIVISION_SIZE"), config.subDivisionSize);
 	AddConfigItem(_T("SUBSAMPLES"), config.subSamples);
-	AddConfigItem(_T("SEED"), config.seed);
 	
 	AddConfigItem(_T("RECURSIVE"), config.recursiveSourceDirectories);
 	AddConfigItem(_T("MULTIPLE_USE"), config.allowMultipleOccurrences);
@@ -36,6 +35,9 @@ void PhotoMosaicConfigFile::BuildConfigItems()
 	AddConfigItem(_T("HUE_WEIGHT"), config.hueErrorWeight);
 	AddConfigItem(_T("SAT_WEIGHT"), config.saturationErrorWeight);
 	AddConfigItem(_T("VAL_WEIGHT"), config.valueErrorWeight);
+
+	AddConfigItem(_T("DIST_COUNT_THRESHOLD"), config.distancePenaltyCountThreshold);
+	AddConfigItem(_T("DIST_PENALTY_SCALE"), config.distancePenaltyScale);
 }
 
 void PhotoMosaicConfigFile::AssignDefaults()
@@ -43,7 +45,6 @@ void PhotoMosaicConfigFile::AssignDefaults()
 	config.thumbnailSize = 0;
 	config.subDivisionSize = 0;
 	config.subSamples = 0;
-	config.seed = -1;
 	
 	config.recursiveSourceDirectories = false;
 	config.allowMultipleOccurrences = true;
@@ -52,6 +53,9 @@ void PhotoMosaicConfigFile::AssignDefaults()
 	config.hueErrorWeight = 1.0;
 	config.saturationErrorWeight = 1.0;
 	config.valueErrorWeight = 1.0;
+
+	config.distancePenaltyCountThreshold = 2;
+	config.distancePenaltyScale = 0.0;
 }
 
 bool PhotoMosaicConfigFile::ConfigIsOK()
@@ -74,6 +78,9 @@ bool PhotoMosaicConfigFile::ConfigIsOK()
 	ok = IsPositive(config.hueErrorWeight) && ok;
 	ok = IsPositive(config.saturationErrorWeight) && ok;
 	ok = IsPositive(config.valueErrorWeight) && ok;
+
+	ok = IsPositive(config.distancePenaltyCountThreshold) && ok;
+	ok = IsPositive(config.distancePenaltyScale) && ok;
 	
 	return ok;
 }
